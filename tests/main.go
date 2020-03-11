@@ -40,7 +40,7 @@ func main() {
 		wg sync.WaitGroup
 	)
 
-	const I, N = 2, 1000
+	const I, N = 10, 100
 	for i := 0; i < I; i++ {
 		wg.Add(1)
 		go func() {
@@ -59,7 +59,9 @@ func main() {
 					fmt.Println(err)
 					return
 				}
-				fmt.Printf("%s\n", b)
+				if VERBOSE {
+					fmt.Printf("%s\n", b)
+				}
 				d := time.Since(t)
 				sum += d
 				if d < min {

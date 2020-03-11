@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"flag"
+	"fmt"
 	"log"
 	"net"
 	"net/http"
@@ -42,11 +43,7 @@ func Handle(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	buf := bytes.NewBuffer(make([]byte, 0, 64))
-	buf.WriteString("t0=")
-	buf.WriteString(t0)
-	buf.WriteString("&t1=")
-	buf.WriteString(strconv.FormatInt(t1, 10))
-	buf.WriteString("&t2=")
+	buf.WriteString(fmt.Sprintf("t0=%s&t1=%d&t2=", t0, t1))
 	t2 := time.Now().UnixNano() / 1e3
 	buf.WriteString(strconv.FormatInt(t2, 10))
 	w.Write(buf.Bytes())
