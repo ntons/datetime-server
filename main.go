@@ -1,14 +1,15 @@
 package main
 
 import (
+	"bytes"
 	"context"
 	"flag"
-	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
@@ -18,70 +19,37 @@ import (
 type IniHTTP struct {
 	Addr string
 	Path string
-}
 
-type IniSSL struct {
-	Enabled        bool
 	Certificate    string
 	CertificateKey string
 }
 
-type IniDatetime struct {
-	Format string
-}
-
 var cfg = struct {
-	HTTP     *IniHTTP
-	SSL      *IniSSL
-	Datetime *IniDatetime
+	HTTP *IniHTTP
 }{}
 
-func NamedFormat(s string) string {
-	switch s {
-	case "ANSIC":
-		return time.ANSIC
-	case "UnixDate":
-		return time.UnixDate
-	case "RubyDate":
-		return time.RubyDate
-	case "RFC822":
-		return time.RFC822
-	case "RFC822Z":
-		return time.RFC822Z
-	case "RFC850":
-		return time.RFC850
-	case "RFC1123":
-		return time.RFC1123
-	case "RFC1123Z":
-		return time.RFC1123Z
-	case "RFC3339":
-		return time.RFC3339
-	case "RFC3339Nano":
-		return time.RFC3339Nano
-	case "Kitchen":
-		return time.Kitchen
-	case "Stamp":
-		return time.Stamp
-	case "StampMilli":
-		return time.StampMilli
-	case "StampMicro":
-		return time.StampMicro
-	case "StampNano":
-		return time.StampNano
-	default:
-		return s
+// REQ: t0=xxx
+// RES: t0=xxx&t1=xxx&t2=xxx
+func Handle(w http.ResponseWriter, r *http.Request) {
+	t1 := time.Now().UnixNano() / 1e3
+	if err := r.ParseForm(); err != nil {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
-}
-
-func HandleDatetime(w http.ResponseWriter, r *http.Request) {
-	switch cfg.Datetime.Format {
-	case "Unix":
-		w.Write([]byte(fmt.Sprintf("%d", time.Now().Unix())))
-	case "UnixNano":
-		w.Write([]byte(fmt.Sprintf("%d", time.Now().UnixNano())))
-	default:
-		w.Write([]byte(time.Now().Format(NamedFormat(cfg.Datetime.Format))))
+	t0 := r.Form.Get("t0")
+	if len(t0) == 0 {
+		w.WriteHeader(http.StatusBadRequest)
+		return
 	}
+	buf := bytes.NewBuffer(make([]byte, 0, 64))
+	buf.WriteString("t0=")
+	buf.WriteString(t0)
+	buf.WriteString("&t1=")
+	buf.WriteString(strconv.FormatInt(t1, 10))
+	buf.WriteString("&t2=")
+	t2 := time.Now().UnixNano() / 1e3
+	buf.WriteString(strconv.FormatInt(t2, 10))
+	w.Write(buf.Bytes())
 }
 
 type Listener struct {
@@ -99,38 +67,39 @@ func (l Listener) Accept() (conn net.Conn, err error) {
 }
 
 func main() {
-	var err error
-
 	flag.Parse()
 	if len(flag.Arg(0)) == 0 {
 		log.Fatalf("Usage: %s path_to_configure", os.Args[0])
 	}
 
 	// parse configure
-	if err = ini.MapTo(&cfg, flag.Arg(0)); err != nil {
+	if err := ini.MapTo(&cfg, flag.Arg(0)); err != nil {
 		log.Fatalf("parse fail: %v", err)
 	}
 
-	// listen
-	var l net.Listener
-	if l, err = net.Listen("tcp", cfg.HTTP.Addr); err != nil {
-		log.Fatalf("listen fail: %v", err)
+	// listener
+	l, err := net.Listen("tcp", cfg.HTTP.Addr)
+	if err != nil {
+		return
 	}
 	l = &Listener{Listener: l}
 
 	// http
-	http.HandleFunc(cfg.HTTP.Path, HandleDatetime)
+	http.HandleFunc(cfg.HTTP.Path, Handle)
 	var s = &http.Server{}
-	if !cfg.SSL.Enabled {
+	if len(cfg.HTTP.Certificate) == 0 || len(cfg.HTTP.CertificateKey) == 0 {
 		go s.Serve(l)
 	} else {
-		go s.ServeTLS(l, cfg.SSL.Certificate, cfg.SSL.CertificateKey)
+		go s.ServeTLS(l, cfg.HTTP.Certificate, cfg.HTTP.CertificateKey)
 	}
+	defer func() {
+		if err = s.Shutdown(context.Background()); err != nil {
+			log.Printf("shutdown fail: %v", err)
+		}
+	}()
+
 	sig := make(chan os.Signal, 1)
 	signal.Ignore(syscall.SIGPIPE)
 	signal.Notify(sig, syscall.SIGINT, syscall.SIGTERM)
 	<-sig
-	if err = s.Shutdown(context.Background()); err != nil {
-		log.Printf("http server shutdown: %v", err)
-	}
 }

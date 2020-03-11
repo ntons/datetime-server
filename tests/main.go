@@ -47,16 +47,19 @@ func main() {
 			defer wg.Done()
 			for n := 0; n < N; n++ {
 				t := time.Now()
-				r, err := client.Post(URL, "text/plain", nil)
+				r, err := client.Post(
+					fmt.Sprintf("%s?t0=%d", URL, time.Now().UnixNano()/1e3),
+					"text/plain", nil)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
-				_, err = ioutil.ReadAll(r.Body)
+				b, err := ioutil.ReadAll(r.Body)
 				if err != nil {
 					fmt.Println(err)
 					return
 				}
+				fmt.Printf("%s\n", b)
 				d := time.Since(t)
 				sum += d
 				if d < min {
