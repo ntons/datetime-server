@@ -1,5 +1,8 @@
-# datetime-server
-日期时间服务器
+# util server for one more game
+
+## GET /datetime?t0=xxx
+
+日期时间服务
 
 t0是请求数据包传输的客户端时间戳
 
@@ -16,3 +19,10 @@ t0和t3是客户端时间系统的时间、t1和t2是服务端时间系统的时
 θ = (t1 - t0 + t2 - t3) / 2
 
 δ = (t3 - t0) - (t2 - t1)
+
+## POST /log
+
+日志服务
+
+整个POST BODY都会被保存到日志中
+
