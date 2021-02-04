@@ -1,4 +1,4 @@
-# util server for one more game
+# util server for Onemore
 
 ## GET /datetime?t0=xxx
 
