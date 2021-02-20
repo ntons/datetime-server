@@ -20,6 +20,9 @@ var cfg = struct {
 		Certificate    string
 		CertificateKey string
 		LogPath        string
+		LogMaxSize     int
+		LogMaxBackups  int
+		LogMaxAge      int
 	}
 	Log struct {
 		MaxDataLen int
@@ -49,16 +52,15 @@ func main() {
 		log.Fatalf("parse fail: %v", err)
 	}
 
-	log.Printf("start %v", cfg)
-
 	if cfg.Main.LogPath != "" {
 		log.SetOutput(&lumberjack.Logger{
 			Filename:   cfg.Main.LogPath,
-			MaxSize:    100,
-			MaxBackups: 10,
-			MaxAge:     7,
+			MaxSize:    cfg.Main.LogMaxSize,
+			MaxBackups: cfg.Main.LogMaxBackups,
+			MaxAge:     cfg.Main.LogMaxAge,
 		})
 	}
+	log.Printf("start %v", cfg)
 
 	// listener
 	l, err := net.Listen("tcp", cfg.Main.Addr)
